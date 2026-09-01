@@ -1,3 +1,4 @@
+import { createServer } from 'node:http';
 import { describe, expect, it, vi } from 'vitest';
 import { MagmaService } from '../src/services/magma.service.js';
 import { ProviderError } from '../src/shared/errors.js';
@@ -10,6 +11,32 @@ const config = {
 };
 
 describe('MagmaService', () => {
+  it('envia chaves literais no request target HTTP', async () => {
+    let requestTarget = '';
+    const server = createServer((req, res) => {
+      requestTarget = req.url ?? '';
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ nome: 'Registro Autorizado' }));
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') {
+      throw new Error('Servidor local sem porta TCP.');
+    }
+
+    try {
+      const service = new MagmaService({
+        ...config,
+        baseUrl: `http://127.0.0.1:${address.port}/api.php`,
+      });
+      await service.lookupCpf('52998224725');
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+
+    expect(requestTarget).toContain('cpf={{52998224725}}');
+  });
+
   it('bloqueia chamada externa quando o opt-in real está desligado', async () => {
     const fetchMock = vi.fn();
     const service = new MagmaService({ ...config, realRequestsEnabled: false }, fetchMock);
