@@ -37,7 +37,7 @@ export function createApp(
     const startedAt = process.hrtime.bigint();
     res.setHeader('x-request-id', requestId);
     res.on('finish', () => {
-      if (requestPath !== '/api/pix/verify') {
+      if (requestPath !== '/api/consulta') {
         return;
       }
 
@@ -60,7 +60,7 @@ export function createApp(
   app.get('/health', (_req, res) => {
     res.status(200).json({ status: 'ok', magmaConfigured: Boolean(config.magmaToken) });
   });
-  app.use('/api/pix', createPixRouter(config, registry));
+  app.use('/api', createPixRouter(config, registry));
 
   app.use((_req, res) => {
     res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Endpoint não encontrado.' });

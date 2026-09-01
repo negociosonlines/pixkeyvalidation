@@ -32,7 +32,7 @@ Com essa configuração, uma tentativa de consulta CPF retorna `REAL_PROVIDER_RE
 ## Endpoint
 
 ```http
-POST /api/pix/verify
+POST /api/consulta
 Content-Type: application/json
 ```
 
@@ -44,6 +44,34 @@ Content-Type: application/json
 ```
 
 `pixKeyType` aceita `cpf`, `cnpj`, `email`, `phone` e `random`. Se omitido, o backend tenta detectar. CPF e CNPJ são validados matematicamente. CPF inválido não chega à Magma.
+
+## Integração com o frontend
+
+O frontend usa `data-endpoint="/api/consulta"`. `BASEURL` contém somente a origin pública da API, sem o caminho do endpoint.
+
+```js
+const BASEURL = "https://api.exemplo.com";
+const endpoint = element.dataset.endpoint;
+const url = `${BASEURL.replace(/\/$/, "")}/${endpoint.replace(/^\//, "")}`;
+
+fetch(url, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload)
+});
+```
+
+Desenvolvimento:
+
+```text
+http://localhost:3000/api/consulta
+```
+
+Produção:
+
+```text
+https://<DOMINIO-DA-API-NA-VPS>/api/consulta
+```
 
 ## Verificações locais sem consumir Magma
 
@@ -63,14 +91,14 @@ Esta operação gasta uma requisição do provider. Só execute conscientemente:
 1. Coloque a chave nova em `MAGMA_API_TOKEN` no `.env`.
 2. Altere temporariamente `MAGMA_REAL_REQUESTS_ENABLED=true`.
 3. Inicie a API com `npm run dev`.
-4. Faça uma única chamada CPF ao `POST /api/pix/verify`.
+4. Faça uma única chamada CPF ao `POST /api/consulta`.
 5. Volte imediatamente para `MAGMA_REAL_REQUESTS_ENABLED=false`.
 
 Nenhum teste automatizado habilita requisições reais.
 
 ## Logs de observabilidade
 
-Cada conclusão de `/api/pix/verify` gera uma linha JSON em:
+Cada conclusão de `/api/consulta` gera uma linha JSON em:
 
 ```text
 /home/felipe/pixkeyvalidation/logs/audit.jsonl
@@ -123,7 +151,7 @@ MAGMA_API_BASE_URL=https://magmadatahub.com/api.php
 MAGMA_API_TOKEN=
 MAGMA_API_TIMEOUT_MS=8000
 MAGMA_REAL_REQUESTS_ENABLED=false
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+CORS_ALLOWED_ORIGINS=https://pv-etapas.pages.dev,http://localhost:3000,http://localhost:5173
 PIX_VERIFY_RATE_LIMIT_WINDOW_MS=60000
 PIX_VERIFY_RATE_LIMIT_MAX=10
 LOG_DIR=./logs
@@ -132,6 +160,8 @@ LOG_DIR=./logs
 ## CORS
 
 A API aceita apenas origins listadas literalmente em `CORS_ALLOWED_ORIGINS`. Wildcard é rejeitado na inicialização. Cookies não são habilitados e `credentials` está `false`.
+
+O frontend temporário autorizado é `https://pv-etapas.pages.dev`. A configuração CORS contém somente essa origin, sem `/api/consulta`. Localhost permanece permitido para desenvolvimento.
 
 ## CSRF e autenticação
 

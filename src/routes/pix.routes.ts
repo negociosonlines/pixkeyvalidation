@@ -21,6 +21,6 @@ export function createPixRouter(config: AppConfig, registry: RegistryLookup): Ro
     },
   });
 
-  router.post('/verify', limiter, createVerifyPixController(registry));
+  router.post('/consulta', limiter, createVerifyPixController(registry));
   return router;
 }

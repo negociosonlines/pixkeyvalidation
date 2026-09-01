@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import type { AppConfig } from '../src/config/env.js';
 import type { RegistryLookup } from '../src/services/magma.service.js';
+import { ProviderError } from '../src/shared/errors.js';
 
 const baseConfig: AppConfig = {
   nodeEnv: 'test',
@@ -11,7 +12,7 @@ const baseConfig: AppConfig = {
   magmaBaseUrl: 'https://magmadatahub.com/api.php',
   magmaToken: 'configured-token',
   magmaTimeoutMs: 8000,
-  corsAllowedOrigins: ['https://frontend.exemplo.com', 'http://localhost:5173'],
+  corsAllowedOrigins: ['https://pv-etapas.pages.dev', 'http://localhost:5173'],
   rateLimitWindowMs: 60_000,
   rateLimitMax: 10,
   logDir: './logs',
@@ -24,13 +25,13 @@ function buildRegistry(found = true): RegistryLookup {
   };
 }
 
-describe('POST /api/pix/verify', () => {
+describe('POST /api/consulta', () => {
   it('valida CPF, consulta o cadastro e não afirma vínculo com Pix', async () => {
     const registry = buildRegistry();
     const app = createApp(baseConfig, registry);
 
     const response = await request(app)
-      .post('/api/pix/verify')
+      .post('/api/consulta')
       .send({ pixKey: '529.982.247-25', pixKeyType: 'cpf' });
 
     expect(response.status).toBe(200);
@@ -62,7 +63,7 @@ describe('POST /api/pix/verify', () => {
     const app = createApp(baseConfig, registry);
 
     const response = await request(app)
-      .post('/api/pix/verify')
+      .post('/api/consulta')
       .send({ pixKey: '111.111.111-11', pixKeyType: 'cpf' });
 
     expect(response.status).toBe(422);
@@ -80,7 +81,7 @@ describe('POST /api/pix/verify', () => {
     const app = createApp(baseConfig, registry);
 
     const response = await request(app)
-      .post('/api/pix/verify')
+      .post('/api/consulta')
       .send({ pixKey: 'pessoa@exemplo.com' });
 
     expect(response.status).toBe(200);
@@ -107,10 +108,10 @@ describe('POST /api/pix/verify', () => {
     const app = createApp(baseConfig, registry);
 
     const unknownType = await request(app)
-      .post('/api/pix/verify')
+      .post('/api/consulta')
       .send({ pixKey: '52998224725', pixKeyType: 'evp' });
     const oversized = await request(app)
-      .post('/api/pix/verify')
+      .post('/api/consulta')
       .send({ pixKey: `${'a'.repeat(315)}@x.com` });
 
     expect(unknownType.status).toBe(400);
@@ -124,16 +125,16 @@ describe('POST /api/pix/verify', () => {
     const app = createApp(baseConfig, buildRegistry());
 
     const allowed = await request(app)
-      .options('/api/pix/verify')
-      .set('Origin', 'https://frontend.exemplo.com')
+      .options('/api/consulta')
+      .set('Origin', 'https://pv-etapas.pages.dev')
       .set('Access-Control-Request-Method', 'POST');
     const blocked = await request(app)
-      .options('/api/pix/verify')
+      .options('/api/consulta')
       .set('Origin', 'https://malicioso.exemplo')
       .set('Access-Control-Request-Method', 'POST');
 
     expect(allowed.status).toBe(204);
-    expect(allowed.headers['access-control-allow-origin']).toBe('https://frontend.exemplo.com');
+    expect(allowed.headers['access-control-allow-origin']).toBe('https://pv-etapas.pages.dev');
     expect(blocked.status).toBe(403);
     expect(blocked.headers['access-control-allow-origin']).toBeUndefined();
   });
@@ -141,12 +142,46 @@ describe('POST /api/pix/verify', () => {
   it('aplica rate limit configurável ao endpoint', async () => {
     const app = createApp({ ...baseConfig, rateLimitMax: 1 }, buildRegistry());
 
-    const first = await request(app).post('/api/pix/verify').send({ pixKey: 'pessoa@exemplo.com' });
-    const second = await request(app).post('/api/pix/verify').send({ pixKey: 'pessoa@exemplo.com' });
+    const first = await request(app).post('/api/consulta').send({ pixKey: 'pessoa@exemplo.com' });
+    const second = await request(app).post('/api/consulta').send({ pixKey: 'pessoa@exemplo.com' });
 
     expect(first.status).toBe(200);
     expect(second.status).toBe(429);
     expect(second.body.code).toBe('RATE_LIMIT_EXCEEDED');
+  });
+
+  it('retorna provider desabilitado sem executar fallback', async () => {
+    const registry: RegistryLookup = {
+      lookupCpf: vi.fn(async () => {
+        throw new ProviderError(503, 'REAL_PROVIDER_REQUESTS_DISABLED', 'As consultas reais ao provider estão desabilitadas.');
+      }),
+    };
+    const app = createApp(baseConfig, registry);
+
+    const response = await request(app)
+      .post('/api/consulta')
+      .send({ pixKey: '52998224725', pixKeyType: 'cpf' });
+
+    expect(response.status).toBe(503);
+    expect(response.body.code).toBe('REAL_PROVIDER_REQUESTS_DISABLED');
+    expect(registry.lookupCpf).toHaveBeenCalledOnce();
+  });
+
+  it('mapeia erro mockado do provider', async () => {
+    const registry: RegistryLookup = {
+      lookupCpf: vi.fn(async () => {
+        throw new ProviderError(502, 'REGISTRY_PROVIDER_ERROR', 'Não foi possível consultar a base cadastral.');
+      }),
+    };
+    const app = createApp(baseConfig, registry);
+
+    const response = await request(app)
+      .post('/api/consulta')
+      .send({ pixKey: '52998224725', pixKeyType: 'cpf' });
+
+    expect(response.status).toBe(502);
+    expect(response.body.code).toBe('REGISTRY_PROVIDER_ERROR');
+    expect(registry.lookupCpf).toHaveBeenCalledOnce();
   });
 });
 

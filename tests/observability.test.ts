@@ -64,7 +64,7 @@ describe('audit logger', () => {
     const app = createApp(config, registry, logger);
 
     const response = await request(app)
-      .post('/api/pix/verify')
+      .post('/api/consulta')
       .send({ pixKey: '52998224725', pixKeyType: 'cpf' });
 
     const serialized = JSON.stringify(records);
