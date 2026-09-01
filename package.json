@@ -10,6 +10,7 @@
     "prebuild": "npm approve-scripts --allow-scripts-pending",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
+    "server": "node dist/server.js",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
