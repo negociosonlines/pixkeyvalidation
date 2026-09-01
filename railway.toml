@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm run build"
+buildCommand = "rm -rf node_modules/.cache && npm run build"
 
 [deploy]
 startCommand = "npm start"
