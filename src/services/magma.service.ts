@@ -55,7 +55,7 @@ export class MagmaService implements RegistryLookup {
 
     const url = new URL(this.config.baseUrl);
     url.searchParams.set('token', this.config.token);
-    url.searchParams.set('cpf', cpf);
+    url.searchParams.set('cpf', `{{${cpf}}}`);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);

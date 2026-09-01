@@ -24,7 +24,7 @@ describe('MagmaService', () => {
   it('envia CPF e token como query params e aplica whitelist ao retorno', async () => {
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = new URL(String(input));
-      expect(url.searchParams.get('cpf')).toBe('52998224725');
+      expect(url.searchParams.get('cpf')).toBe('{{52998224725}}');
       expect(url.searchParams.get('token')).toBe('server-only-token');
       return new Response(JSON.stringify({
         cpf: '52998224725',
